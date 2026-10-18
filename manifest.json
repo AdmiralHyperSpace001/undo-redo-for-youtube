@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Undo & Redo for YouTube",
+  "version": "1.2.0",
+  "description": "Adds Undo and Redo buttons to the YouTube player — instantly recover your position after any accidental seek.",
+  "permissions": ["storage"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.youtube.com/*", "*://youtube.com/*"],
+      "js": [
+        "src/config.js",
+        "src/utils.js",
+        "src/seek-history.js",
+        "src/store.js",
+        "src/seek-tracker.js",
+        "src/controls.js",
+        "src/controller.js"
+      ],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Undo & Redo for YouTube",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_popup": "popup.html"
+  }
+}

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Undo &amp; Redo for YouTube</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>Undo &amp; Redo for YouTube</h1>
+    <p>Use the buttons in a YouTube player's controls to reverse or repeat your latest seek.</p>
+    <p class="hint">If the buttons are not visible, reload the YouTube video tab after installing or updating the extension.</p>
+    <label class="toggle">
+      <input id="extension-enabled" type="checkbox">
+      <span>Enable extension</span>
+    </label>
+    <label class="toggle">
+      <input id="shortcuts-enabled" type="checkbox">
+      <span>Enable keyboard shortcuts</span>
+    </label>
+    <label>Undo shortcut
+      <input id="undo-shortcut" class="shortcut" type="text" readonly>
+    </label>
+    <label>Redo shortcut
+      <input id="redo-shortcut" class="shortcut" type="text" readonly>
+    </label>
+    <p class="hint">Click a shortcut field, then press the key combination you want.</p>
+    <button id="clear-history" type="button">Clear saved history</button>
+    <div id="status" role="status" aria-live="polite"></div>
+  </main>
+  <script src="src/config.js"></script>
+  <script src="src/utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

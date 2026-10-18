@@ -1,0 +1,76 @@
+/* Undo & Redo for YouTube — styles for OUR elements only. Nothing here targets
+   YouTube's own controls. The group is positioned from JS (left/top) just to
+   the left of YouTube's right-hand control pill. */
+
+.ytundo-group {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 4px;
+  visibility: hidden;          /* shown once JS has measured a position */
+  pointer-events: auto;
+}
+
+.ytundo-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  width: var(--ytundo-btn-w, 44px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+
+.ytundo-btn:hover { opacity: 1; }
+
+.ytundo-btn .ytundo-icon {
+  width: var(--ytundo-icon, 36px);
+  height: var(--ytundo-icon, 36px);
+  fill: #fff;
+  pointer-events: none;
+  display: block;
+  transition: opacity 0.15s ease;
+}
+
+.ytundo-btn.ytundo-disabled,
+.ytundo-btn.ytundo-disabled:hover { cursor: default; opacity: 1; }
+.ytundo-btn.ytundo-disabled .ytundo-icon { opacity: 0.3; }
+
+.ytundo-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: -4px;
+  border-radius: 8px;
+}
+
+/* Tooltip: child of the player, positioned from JS (left/bottom). */
+.ytundo-tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 10000;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: rgba(28, 28, 28, 0.94);
+  color: #fff;
+  font: 500 12px/14px "YouTube Noto", Roboto, Arial, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+}
+
+.ytundo-tooltip--visible { opacity: 1; visibility: visible; }
+
+/* Hide with the rest of the controls when YouTube auto-hides them. */
+.html5-video-player.ytp-autohide .ytundo-tooltip { opacity: 0; visibility: hidden; }

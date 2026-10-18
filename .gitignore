@@ -1,0 +1,18 @@
+# build output
+dist/
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# node (only if you add tooling later)
+node_modules/
+npm-debug.log*
+
+# local secrets / signing keys (never commit these)
+*.pem
+*.crx
+.env

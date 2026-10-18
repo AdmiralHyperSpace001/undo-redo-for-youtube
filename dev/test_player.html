@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Undo & Redo for YouTube — dev harness</title>
+<!-- Layouts:  ?layout=new (default: right controls are ONE rounded pill, like current YouTube) | legacy (flat, no pill) | noautoplay
+     &pos=rel makes .ytp-chrome-controls position:relative (offsetParent differs) -->
+<link rel="stylesheet" href="/styles.css">
+<style>
+  body { margin: 0; background: #0f0f0f; color: #eee; font: 14px Roboto, Arial, sans-serif; padding: 24px; }
+  /* --- approximation of YouTube's own player CSS (incl. the overflow:hidden that clips child tooltips) --- */
+  .html5-video-player { position: relative; width: 960px; height: 540px; background: #000; overflow: hidden; }
+  .html5-video-container, .html5-main-video { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ytp-chrome-bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 54px; padding: 0 12px; background: linear-gradient(transparent, rgba(0,0,0,.8)); z-index: 59; }
+  .ytp-progress-bar-container { height: 8px; position: relative; cursor: pointer; }
+  .ytp-progress-bar { position: absolute; left: 0; right: 0; top: 2px; height: 4px; background: rgba(255,255,255,.25); }
+  .ytp-play-progress { height: 100%; width: 0; background: #f00; }
+  .ytp-chrome-controls { display: flex; height: 46px; align-items: center; justify-content: space-between; }
+  .ytp-left-controls, .ytp-right-controls, .ytp-right-controls-left, .ytp-right-controls-right { display: flex; align-items: center; height: 100%; }
+  .ytp-button { border: 0; background: transparent; padding: 0; color: #fff; width: 48px; height: 100%; display: inline-block; overflow: hidden; opacity: .9; cursor: pointer; }
+  .ytp-button:hover { opacity: 1; }
+  .ytp-button svg { width: 100%; height: 100%; fill: #fff; }
+  .ytp-autonav-toggle-button-container { display: inline-flex; align-items: center; height: 100%; padding: 0 8px; }
+  .ytp-autonav-toggle-button { width: 36px; height: 14px; border-radius: 7px; background: rgba(255,255,255,.4); position: relative; }
+  .ytp-autonav-toggle-button::after { content: ""; position: absolute; top: -3px; left: 0; width: 20px; height: 20px; border-radius: 50%; background: #fff; }
+  .ytp-time-display { padding: 0 8px; }
+  .html5-video-player.ytp-autohide .ytp-chrome-bottom { opacity: 0; }
+  .pill .ytp-right-controls { background: rgba(0,0,0,.3); border-radius: 24px; padding: 0 6px; height: 48px; backdrop-filter: blur(6px); }
+  .pill .ytp-right-controls-left { }
+  .pos-rel .ytp-chrome-controls { position: relative; }
+  #panel { margin-top: 16px; font: 12px monospace; white-space: pre; }
+  #panel button { margin-right: 6px; }
+</style>
+</head>
+<body>
+<div id="movie_player" class="html5-video-player">
+  <div class="html5-video-container"><video class="html5-main-video" id="vid"></video></div>
+  <div class="ytp-chrome-bottom">
+    <div class="ytp-progress-bar-container"><div class="ytp-progress-bar"><div class="ytp-play-progress" id="prog"></div></div></div>
+    <div class="ytp-chrome-controls">
+      <div class="ytp-left-controls"><span class="ytp-time-display" id="clock">0:00</span></div>
+      <div class="ytp-right-controls" id="rc"></div>
+    </div>
+  </div>
+</div>
+
+<div id="panel"></div>
+<p>
+  <button onclick="jump(0.3)">jump 30%</button>
+  <button onclick="jump(0.7)">jump 70%</button>
+  <button onclick="nav('other')">SPA-navigate to another video</button>
+  <span id="info"></span>
+</p>
+
+<script>
+  // ── build the control bar for the chosen layout ──
+  const layout = new URLSearchParams(location.search).get('layout') || 'new';
+  if (layout !== 'legacy') document.getElementById('movie_player').classList.add('pill');
+  if (new URLSearchParams(location.search).get('pos') === 'rel') document.getElementById('movie_player').classList.add('pos-rel');
+  const btn = (title, d) => `<button class="ytp-button ${title}" title="${title}"><svg viewBox="0 0 36 36"><path d="${d}"/></svg></button>`;
+  const autoplay = `<div class="ytp-autonav-toggle-button-container"><div class="ytp-autonav-toggle-button"></div></div>`;
+  const cc = btn('ytp-subtitles-button', 'M11 11h14v14H11z');
+  const rest = btn('ytp-settings-button', 'M12 12h12v12H12z') + btn('ytp-fullscreen-button', 'M10 10h6v3h-3v3h-3zM26 26h-6v-3h3v-3h3z');
+  const rc = document.getElementById('rc');
+  if (layout === 'legacy')           rc.innerHTML = autoplay + cc + rest;
+  else if (layout === 'noautoplay')  rc.innerHTML = `<div class="ytp-right-controls-left">${cc}</div><div class="ytp-right-controls-right">${rest}</div>`;
+  else rc.innerHTML = `<div class="ytp-right-controls-left">${autoplay}${cc}</div><div class="ytp-right-controls-right">${rest}</div>`;
+
+  const vid = document.getElementById('vid');
+  // ── real <video> with an in-memory 10-minute silent WAV so seeking/events are genuine ──
+  (function () {
+    const rate = 8000, secs = 600, n = rate * secs, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+    const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+    v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    w(36, 'data'); v.setUint32(40, n, true); new Uint8Array(buf, 44).fill(128);
+    vid.src = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  })();
+  vid.addEventListener('timeupdate', () => {
+    clock.textContent = YTUR.fmtTime(vid.currentTime);
+    prog.style.width = (vid.currentTime / (vid.duration || 1) * 100) + '%';
+  });
+  // clicking the progress bar = seek (what YouTube does)
+  document.querySelector('.ytp-progress-bar-container').addEventListener('click', e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    vid.currentTime = (e.clientX - r.left) / r.width * vid.duration;
+  });
+  function jump(p) { vid.currentTime = vid.duration * p; }   // NOTE: no user gesture -> must NOT be recorded
+
+  // ── simulate YouTube's SPA navigation ──
+  function nav(id) {
+    history.pushState({}, '', '/watch?v=' + id + (layout !== 'new' ? '&layout=' + layout : ''));
+    document.dispatchEvent(new Event('yt-navigate-finish'));
+  }
+
+  // ── tiny inspector ──
+  setInterval(() => {
+    const h = window.YTUR?.app?.history;
+    if (h) panel.textContent = 'video=' + YTUR.app.videoId + '  idx=' + h._idx + '\n' + JSON.stringify(h._stack.map(e => [e.from, e.to]));
+  }, 300);
+</script>
+<!-- the REAL extension files, in manifest order -->
+<script src="/dev/chrome-stub.js"></script>
+<script src="/src/config.js"></script>
+<script src="/src/utils.js"></script>
+<script src="/src/seek-history.js"></script>
+<script src="/src/store.js"></script>
+<script src="/src/seek-tracker.js"></script>
+<script src="/src/controls.js"></script>
+<script src="/src/controller.js"></script>
+</body>
+</html>
